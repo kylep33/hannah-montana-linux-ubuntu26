@@ -1,0 +1,12 @@
+#!/bin/sh
+# Apply the theme (with its panel layout) once per user, on their first Plasma login.
+# Delete the marker file to have it re-applied at next login.
+# Every login: give a Hannah avatar to anyone without one. AccountsService copy is what SDDM
+# reads, since it can't see into 750 home dirs.
+[ -e "$HOME/.face.icon" ] || cp /etc/skel/.face.icon "$HOME/.face.icon"
+[ -e "/var/lib/AccountsService/icons/$USER" ] || busctl call org.freedesktop.Accounts \
+    "/org/freedesktop/Accounts/User$(id -u)" org.freedesktop.Accounts.User SetIconFile s "$HOME/.face.icon"
+
+marker="${XDG_CONFIG_HOME:-$HOME/.config}/hannah-montana-applied"
+[ -e "$marker" ] && exit 0
+plasma-apply-lookandfeel -a org.hml.desktop --resetLayout && touch "$marker"

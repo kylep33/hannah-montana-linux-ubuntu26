@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Hannah Montana first-login setup
+Exec=/usr/libexec/hannah-montana-first-login
+OnlyShowIn=KDE;
+NoDisplay=true
+# phase 2 runs after plasmashell is up, so --resetLayout has a desktop to reset
+X-KDE-autostart-phase=2

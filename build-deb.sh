@@ -29,6 +29,30 @@ Description: Hannah Montana Linux look for KDE Plasma 6
 EOF
 
 PLY=/usr/share/plymouth/themes/hannah-montana/hannah-montana.plymouth
+
+# files also shipped by desktop-base: divert theirs to *.distrib so ours take the path
+DIVERT="/etc/skel/.face /etc/skel/.face.icon /etc/xdg/kcm-about-distrorc"
+cat > "$PKG/DEBIAN/preinst" <<EOF
+#!/bin/sh
+set -e
+if [ "\$1" = install ] || [ "\$1" = upgrade ]; then
+    for f in $DIVERT; do
+        dpkg-divert --package hannah-montana-theme --rename --divert "\$f.distrib" --add "\$f"
+    done
+fi
+EOF
+cat > "$PKG/DEBIAN/postrm" <<EOF
+#!/bin/sh
+set -e
+case "\$1" in
+    remove|purge|abort-install|disappear)
+        for f in $DIVERT; do
+            dpkg-divert --package hannah-montana-theme --rename --divert "\$f.distrib" --remove "\$f"
+        done
+        ;;
+esac
+EOF
+
 cat > "$PKG/DEBIAN/postinst" <<EOF
 #!/bin/sh
 set -e
@@ -46,7 +70,7 @@ if [ "\$1" = remove ]; then
     if command -v update-initramfs >/dev/null; then update-initramfs -u || true; fi
 fi
 EOF
-chmod 755 "$PKG/DEBIAN/postinst" "$PKG/DEBIAN/prerm"
+chmod 755 "$PKG/DEBIAN/preinst" "$PKG/DEBIAN/postinst" "$PKG/DEBIAN/prerm" "$PKG/DEBIAN/postrm"
 
 dpkg-deb --root-owner-group -Zxz --build "$PKG" "$OUT"
 

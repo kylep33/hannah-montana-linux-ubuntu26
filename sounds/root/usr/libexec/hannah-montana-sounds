@@ -1,0 +1,51 @@
+#!/bin/sh
+# Every login: deal a random clip from each pool to each KDE sound, then play a
+# really-short clip whenever the KWin script reports a closed window.
+pools=/usr/share/hannah-montana-sounds
+theme="${XDG_DATA_HOME:-$HOME/.local/share}/sounds/hannah-montana"
+mkdir -p "$theme/stereo"
+cp -f "$pools/index.theme" "$theme/"
+
+pick() { find "$pools/$1" -name '*.wav' | shuf -n1; }
+
+while read -r pool sounds; do
+    for s in $sounds; do
+        clip=$(pick "$pool")
+        [ -n "$clip" ] || continue
+        # rename so the login sound can never catch a half-replaced link
+        ln -sf "$clip" "$theme/stereo/.$s.tmp" && mv -Tf "$theme/stereo/.$s.tmp" "$theme/stereo/$s.wav"
+    done
+done <<EOF
+upbeat-long desktop-login session-unlocked alarm-clock-elapsed
+somber-long desktop-logout session-locked
+upbeat-short trash-empty device-added power-plug battery-full completion-success message-new-instant
+somber-short device-removed power-unplug battery-low battery-caution dialog-error dialog-error-serious dialog-error-critical dialog-warning dialog-question dialog-warning-auth
+EOF
+
+# Once per user, so a sound theme picked later in System Settings is left alone.
+marker="${XDG_CONFIG_HOME:-$HOME/.config}/hannah-montana-sounds-applied"
+if [ ! -e "$marker" ]; then
+    kwriteconfig6 --file kdeglobals --group Sounds --key Theme hannah-montana
+    # These events are silent in Plasma's defaults.
+    for e in startkde exitkde; do
+        kwriteconfig6 --file plasma_workspace.notifyrc --group "Event/$e" --key Action Sound
+    done
+    kwriteconfig6 --file powerdevil.notifyrc --group Event/fullbattery --key Action Sound
+    for e in locked unlocked; do
+        kwriteconfig6 --file ksmserver.notifyrc --group "Event/$e" --key Action Sound
+        kwriteconfig6 --file ksmserver.notifyrc --group "Event/$e" --key Sound "session-$e"
+    done
+    # libcanberra caches lookups and won't notice the theme's links appearing.
+    rm -f "${XDG_CACHE_HOME:-$HOME/.cache}"/event-sound-cache.tdb.*
+    touch "$marker"
+fi
+
+dbus-monitor --session "type='method_call',path='/org/hml/WindowClosed'" | while read -r line; do
+    case "$line" in *path=/org/hml/WindowClosed*)
+        # a new close cuts off the previous clip
+        kill "$player" 2>/dev/null
+        pw-play "$(pick really-short)" &
+        player=$!
+        ;;
+    esac
+done

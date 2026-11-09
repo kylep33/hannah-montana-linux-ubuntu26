@@ -1,0 +1,8 @@
+[Sound Theme]
+Name=Hannah Montana
+Comment=Pop-guitar stings for Hannah Montana Linux
+Inherits=ocean
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo

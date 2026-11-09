@@ -1,0 +1,11 @@
+{
+    "KPlugin": {
+        "Id": "hannah-montana-sounds",
+        "Name": "Hannah Montana window sounds",
+        "Description": "Plays a transition when a window closes",
+        "License": "GPL-3.0-or-later"
+    },
+    "KPackageStructure": "KWin/Script",
+    "X-Plasma-API": "javascript",
+    "X-Plasma-MainScript": "code/main.js"
+}

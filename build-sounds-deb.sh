@@ -26,7 +26,7 @@ Architecture: all
 Section: sound
 Priority: optional
 Maintainer: kylep33 <kyleapereira33@gmail.com>
-Depends: kde-plasma-desktop, pipewire-bin, dbus-bin
+Depends: kde-plasma-desktop, pipewire-bin, dbus-bin, pulseaudio-utils, jq, systemd
 Recommends: hannah-montana-theme
 Installed-Size: $(du -sk "$PKG/usr" "$PKG/etc" | awk '{s+=$1} END {print s}')
 Description: Optional transition sounds for Hannah Montana Linux

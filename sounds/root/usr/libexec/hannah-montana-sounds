@@ -40,12 +40,56 @@ if [ ! -e "$marker" ]; then
     touch "$marker"
 fi
 
+# KDE plays from $theme, we play from $pools
+ours='def ours: .properties["media.filename"] // "" | test("/hannah-montana-sounds/|/sounds/hannah-montana/");'
+hm_playing() { pactl -f json list sink-inputs | jq -e "$ours"' any(.[]; ours)' >/dev/null; }
+
+# A new clip cuts off any other of ours still playing.
+# The path only shows up on a 'change' after 'new', and indexes only grow.
+newest=0
+pactl subscribe | while read -r line; do
+    case "$line" in *"on sink-input #"*)
+        id=${line##*#}
+        [ "$id" -gt "$newest" ] || continue
+        # prints nothing unless $id is ours, then "new" and the pipewire ids of the others
+        out=$(pactl -f json list sink-inputs | jq -r --argjson id "$id" "$ours"'
+            map(select(ours))
+            | select(any(.index == $id))
+            | "new", (.[] | select(.index != $id) | .properties["object.id"])')
+        [ -n "$out" ] || continue
+        newest=$id
+        echo "$out" | tail -n +2 | xargs -r -n1 pw-cli destroy >/dev/null 2>&1
+        ;;
+    esac
+done &
+
+# Hold off suspend (lid close too) until the sleep clip ends; logind caps the wait at InhibitDelayMaxSec.
+sleep_clip_max_s=10
+poll_s=0.2
+hold_sleep() {
+    systemd-inhibit --what=sleep --mode=delay --who="Hannah Montana sounds" \
+        --why="finish the sleep sound" sleep infinity &
+    inhibitor=$!
+}
+hold_sleep
+dbus-monitor --system "type='signal',interface='org.freedesktop.login1.Manager',member='PrepareForSleep'" |
+while read -r line; do
+    case "$line" in
+    *"boolean true"*)
+        pw-play "$theme/stereo/session-locked.wav" &
+        # KDE's lock sound may win the cut-off race, so wait on any of ours, not just this pw-play
+        end_s=$(($(date +%s) + sleep_clip_max_s))
+        sleep "$poll_s"
+        while hm_playing && [ "$(date +%s)" -lt "$end_s" ]; do sleep "$poll_s"; done
+        kill "$inhibitor"
+        ;;
+    *"boolean false"*) hold_sleep ;;
+    esac
+done &
+
 dbus-monitor --session "type='method_call',path='/org/hml/WindowClosed'" | while read -r line; do
     case "$line" in *path=/org/hml/WindowClosed*)
-        # a new close cuts off the previous clip
-        kill "$player" 2>/dev/null
         pw-play "$(pick really-short)" &
-        player=$!
         ;;
     esac
 done
